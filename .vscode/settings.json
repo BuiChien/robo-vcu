@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "sensors_controller.h": "c",
+        "command.h": "c",
+        "configs.h": "c",
+        "*.tcc": "c",
+        "typeinfo": "c",
+        "stdbool.h": "c"
+    }
+}

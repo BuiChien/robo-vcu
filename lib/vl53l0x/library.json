@@ -1,0 +1,17 @@
+{
+    "authors": [
+        {
+            "maintainer": true,
+            "name": "STMicroelectronics"
+        },
+        {
+            "name": "STMicroelectronics VL53l0x"
+        }
+    ],
+    "description": "VL53l0x driver",
+    "frameworks": "stm32cube",
+    "keywords": "VL53l0x",
+    "name": "VL53l0x",
+    "platforms": "ststm32",
+    "version": "1.0"
+}

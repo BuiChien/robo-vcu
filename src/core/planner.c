@@ -34,12 +34,17 @@ void Planner_Init()
         pid[i].fIntegratorLimitMax = setting->MotorMinVoltage;
         PID_Init(&pid[i]);
     }
+    Planner_Reset();
 }
 
 void Planner_Move(int32_t distance, uint16_t speed, bool isRotate)
 {
     int8_t prevIndex = blockBufferHeadIndex;
     int8_t nextIndex = blockBufferHeadIndex + 1;
+    if(nextIndex > (PLANNER_BLOCK_BUFFER_SIZE - 1))
+    {
+        nextIndex = DEFAULT_INDEX;
+    }
     if(prevIndex != DEFAULT_INDEX) 
     {
         blockBuffer[nextIndex].Stage = PLAN_CTRL_STAGE_NORMAL;
@@ -59,6 +64,7 @@ void Planner_Move(int32_t distance, uint16_t speed, bool isRotate)
         blockBuffer[nextIndex].MotorOps[i].Speed = speed;
         blockBuffer[nextIndex].MotorOps[i].Target = abs(targetDistance);
     }
+    blockBufferHeadIndex = nextIndex;
 }
 
 void Planner_Reset()
@@ -77,7 +83,7 @@ Planner_BlockTypeDef *Planner_Recalculate(uint32_t diffTime)
         uint8_t finishCount = 0;
         for(uint8_t i = 0; i < MOTOR_ID_NUM; i++) 
         {
-            if(block->MotorOps[i].Target < motorOps[i].Millimeters) 
+            if(block->MotorOps[i].Target > motorOps[i].Millimeters) 
             {
                 block->MotorOps[i].Voltage = PID_Calculate(&pid[i], block->MotorOps[i].Speed, motorOps->Speed, ((float)diffTime / 1000.0f));
                 if(block->MotorOps[i].Voltage < setting->MotorMinVoltage)

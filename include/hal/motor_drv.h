@@ -5,7 +5,7 @@
 #include "common.h"
 
 extern void MotorDrv_Init();
-extern void MotorDrv_Execute(const Planner_BlockTypeDef * const block);
+extern void MotorDrv_Execute(const Planner_BlockTypeDef * const block, uint32_t diffTime);
 extern void MotorDrv_Stop();
 
 

@@ -48,7 +48,7 @@ typedef struct {
     uint8_t MotorMaxVoltage;    // Maximum voltage can drive of motor driver
     uint8_t MotorMinVoltage;    // Miximum voltage which motor can start moving
     uint8_t PulsePerRevolution; // Number pulse per revolution of wheel
-    uint8_t PulsesPerMM;        // Number pulses per MM
+    float PulsesPerMM;          // Number pulses per MM
     uint16_t WheelDiameterMM;
     uint16_t RobotDiameterMM;
 } Setting_InfoTypeDef;

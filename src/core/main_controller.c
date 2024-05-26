@@ -30,7 +30,7 @@ static Unit_InterfaceTypeDef* units[UNIT_NUMBER] =
 
 void MainController_Init()
 {
-    memset(motorOps, 0, sizeof(Motor_OpsTypeDef) * MOTOR_ID_NUM);
+    memset(&mt, 0, sizeof(Motor_OpsTypeDef) * MOTOR_ID_NUM);
     MainController_LoadSetting();
     xTaskCreate(&MainController_Task, "MainTask", MAIN_TASK_STACK_SIZE, NULL, 2, &hHandle);
 }
@@ -45,6 +45,11 @@ static void MainController_Task() {
     uint32_t pTickReport = 0;
     uint32_t pTickSampling = 0;
     uint32_t diffTime = 0;
+    RunCommand_InfoTypeDef run;
+    run.Distance = 1000;
+    run.Id = CMD_RUN;
+    run.Speed = 10;
+    MainController_ProcessCommand(&run);
     for (;;)
     {
         if(CanBusDrv_Receive(buffer, pdMS_TO_TICKS(MOTOR_SPEED_SAMPLE_RATE_MS))) 
@@ -59,7 +64,7 @@ static void MainController_Task() {
             Planner_BlockTypeDef *block = Planner_Recalculate(diffTime);
             if(block != NULL) 
             {
-                MotorDrv_Execute(block);
+                MotorDrv_Execute(block, diffTime);
             } 
             else 
             {

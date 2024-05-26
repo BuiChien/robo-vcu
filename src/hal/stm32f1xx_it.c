@@ -36,7 +36,7 @@
 #include "stm32f1xx_it.h"
 
 extern TIM_HandleTypeDef htim1;
-
+extern CAN_HandleTypeDef hcan;
 /******************************************************************************/
 /*            Cortex-M3 Processor Interruption and Exception Handlers         */ 
 /******************************************************************************/
@@ -103,5 +103,10 @@ void DebugMon_Handler(void)
 void TIM1_UP_IRQHandler(void)
 {
 	HAL_TIM_IRQHandler(&htim1);
+}
+
+void CAN1_RX0_IRQHandler(void)
+{
+  	HAL_CAN_IRQHandler(&hcan);
 }
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

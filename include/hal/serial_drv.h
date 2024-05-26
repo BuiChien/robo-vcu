@@ -6,7 +6,7 @@
 typedef struct
 {
     uint16_t iLength;
-    uint8_t  data[SERIAL_RECEIVE_BUFFER];
+    uint8_t  data[RECEIVE_CMD_BUFFER_SIZE];
 } SerialDrv_DataTypeDef;
 
 extern void SerialDrv_Init();

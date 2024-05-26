@@ -11,7 +11,7 @@ Sensors_ApiTypeDef* sensors[NUMBER_SENSOR] =
 };
 
 void SensorsCtrl_Init();
-void SensorsCtrl_ProcessCommand(Command_InfoTypeDef *cmd);
+void SensorsCtrl_ProcessCommand(const Command_InfoTypeDef * const cmd);
 void SendorsCtrl_Task(void *args);
 
 Unit_InterfaceTypeDef sensorsCtrl = 
@@ -29,7 +29,7 @@ void  SensorsCtrl_Init()
     xTaskCreate(SendorsCtrl_Task, "SensorsTask", 256, NULL, 1, &hSensorsCtrlHandle);
 }
 
-void SensorsCtrl_ProcessCommand(Command_InfoTypeDef *cmd)
+void SensorsCtrl_ProcessCommand(const Command_InfoTypeDef * const cmd)
 {
     
 }

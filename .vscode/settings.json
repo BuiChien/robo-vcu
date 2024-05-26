@@ -5,6 +5,16 @@
         "configs.h": "c",
         "*.tcc": "c",
         "typeinfo": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "can_bus_drv.h": "c",
+        "stm32f1xx_hal.h": "c",
+        "comunicator.h": "c",
+        "main_controller.h": "c",
+        "serial_drv.h": "c",
+        "planner.h": "c",
+        "motion_controller.h": "c",
+        "common.h": "c",
+        "task.h": "c",
+        "motor_drv.h": "c"
     }
 }

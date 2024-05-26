@@ -2,7 +2,6 @@
 #include <math.h>
 #include <string.h>
 #include "motor_drv.h"
-#include "pid.h"
 #include "common.h"
 #include "low_pass_filter.h"
 
@@ -79,12 +78,11 @@ typedef struct
     uint32_t    iTimerChannel;
     uint32_t    iLastCalculate;
     MotorDrv_EncoderTypeDef sEncoder;
-    PID_InfoTypeDef sPid;
 } MotorDrv_InfoTypeDef;
 TIM_HandleTypeDef hEncLeftTimer;
 TIM_HandleTypeDef hEncRightTimer;
 TIM_HandleTypeDef hPwmTimer;
-MotorDrv_InfoTypeDef sMotorInfo[MOTOR_DRV_NUMBER] = {
+MotorDrv_InfoTypeDef sMotorInfo[MOTOR_ID_NUM] = {
     {
         .sIoEnable = 
         { 
@@ -115,17 +113,6 @@ MotorDrv_InfoTypeDef sMotorInfo[MOTOR_DRV_NUMBER] = {
             .pTimer = MOTOR_DRV_LEFT_ENC_TIMER,
             .hTimer = &hEncLeftTimer,
             .iTimerChannel = MOTOR_DRV_LEFT_ENC_TIMER_CHANNEL,
-        },
-        .sPid = 
-        {
-            PID_KP, 
-            PID_KI, 
-            PID_KD,
-            PID_TAU,
-            PID_LIM_MIN,
-            PID_LIM_MAX,
-            PID_LIM_MIN_INTEGRATOR,
-            PID_LIM_MAX_INTEGRATOR
         }
     },
     {
@@ -157,23 +144,9 @@ MotorDrv_InfoTypeDef sMotorInfo[MOTOR_DRV_NUMBER] = {
             .pTimer = MOTOR_DRV_RIGHT_ENC_TIMER,
             .hTimer = &hEncRightTimer,
             .iTimerChannel = MOTOR_DRV_RIGHT_ENC_TIMER_CHANNEL,
-        },
-        .sPid = 
-        {
-            PID_KP, 
-            PID_KI, 
-            PID_KD,
-            PID_TAU,
-            PID_LIM_MIN,
-            PID_LIM_MAX,
-            PID_LIM_MIN_INTEGRATOR,
-            PID_LIM_MAX_INTEGRATOR
         }
     }
 };
-
-MotorDrv_OpsTypeDef sMotorOps[MOTOR_DRV_NUMBER];
-MotorDrv_OpsTypeDef *pMotorOps = sMotorOps;
 
 void MotorDrv_Init() 
 {
@@ -184,12 +157,10 @@ void MotorDrv_Init()
     TIM_OC_InitTypeDef sConfig;
     TIM_SlaveConfigTypeDef sSlaveConfig = { 0 };
     TIM_MasterConfigTypeDef sMasterConfig = { 0 };
-    memset(sMotorOps, 0, sizeof(MotorDrv_OpsTypeDef) * MOTOR_DRV_NUMBER);
     LowPassFilter_Init(LOW_PASS_FILTER_CUTOFF_HZ, LOW_PASS_FILTER_SAMPLE_HZ, true);
-    for (size_t i = 0; i < MOTOR_DRV_NUMBER; i++)
+    for (size_t i = 0; i < MOTOR_ID_NUM; i++)
     {
         pMotor = &sMotorInfo[i];
-        PID_Init(&pMotor->sPid);
         // Configure GPIO Enable
         sGpio.Pin       = pMotor->sIoEnable.Pin;
         sGpio.Mode      = GPIO_MODE_AF_PP;
@@ -288,98 +259,41 @@ void MotorDrv_Init()
     }
 }
 
-void MotorDrv_SetSpeed(MotorDrv_IdTypeDef id, float target)
+void MotorDrv_Execute(const Planner_BlockTypeDef * const block)
 {
-    sMotorOps[id].dTargetSpeed = MM_PER_SECOND_TO_RAD(target);
-}
-
-void MotorDrv_SetTarget(MotorDrv_IdTypeDef id, float target)
-{
-    MotorDrv_InfoTypeDef *pMotor = &sMotorInfo[id];
-    pMotor->iLastCalculate = HAL_GetTick();
-    pMotor->sEncoder.iCounter = __HAL_TIM_GET_COUNTER(pMotor->sEncoder.hTimer);
-    pMotor->sEncoder.iLastCounter = pMotor->sEncoder.iCounter;
-    if (target > 0)
+    uint16_t pwmValue = 0;
+    for(uint8_t i = 0; i < MOTOR_ID_NUM; i++) 
     {
-        HAL_GPIO_WritePin(pMotor->sIoDirA.Port, pMotor->sIoDirA.Pin, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(pMotor->sIoDirB.Port, pMotor->sIoDirB.Pin, GPIO_PIN_RESET);
-    }
-    else
-    {
-        HAL_GPIO_WritePin(pMotor->sIoDirA.Port, pMotor->sIoDirA.Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(pMotor->sIoDirB.Port, pMotor->sIoDirB.Pin, GPIO_PIN_SET);
-    }
-    sMotorOps[id].dTarget = fabs(target);
-}
-
-void MotorDrv_Execute(MotorDrv_IdTypeDef id)
-{
-    MotorDrv_InfoTypeDef *pMotor = &sMotorInfo[id];
-    MotorDrv_OpsTypeDef *pOps = &sMotorOps[id];
-    if (pOps->dTarget > 0)
-    {
-        float iDiffCounter = 0;
-        uint32_t iDiffTime = 0;
-        uint32_t iTimeNow = HAL_GetTick();
-        float dPidOut = 0;
-        uint16_t iPwmValue = 0;
-        pMotor->sEncoder.iCounter = __HAL_TIM_GET_COUNTER(pMotor->sEncoder.hTimer);
-        if (pMotor->sEncoder.iCounter >= pMotor->sEncoder.iLastCounter)
+        MotorDrv_InfoTypeDef *motor = &sMotorInfo[i];
+        if(block->Stage == PLAN_CTRL_STAGE_ACCEL) 
         {
-            iDiffCounter = pMotor->sEncoder.iCounter - pMotor->sEncoder.iLastCounter;
-        }
-        else
-        {
-            iDiffCounter = ((MAX_UINT16 - pMotor->sEncoder.iLastCounter) + pMotor->sEncoder.iCounter) + 1;
-        }
-        iDiffTime = iTimeNow - pMotor->iLastCalculate;
-        pOps->dTarget -= ENC_PULSES_TO_MM(iDiffCounter);
-        if (pOps->dTarget > 0)
-        {
-            pOps->dSpeed = ENC_PULSES_TO_RAD(iDiffCounter, iDiffTime);
-            pOps->dSpeed = LowPassFilter_Filt(pOps->dSpeed);
-            dPidOut = PID_Calculate(&pMotor->sPid, pOps->dTargetSpeed, pOps->dSpeed, ((float)iDiffTime / 1000.0f));
-            // theese small voltages will only make the motors whine anyway
-            if(fabs(dPidOut) < 0.6) 
+            motor->sEncoder.iCounter = __HAL_TIM_GET_COUNTER(motor->sEncoder.hTimer);
+            motor->sEncoder.iLastCounter = motor->sEncoder.iCounter;
+            if (block->MotorOps[i].isCw)
             {
-                dPidOut = 0; 
+                HAL_GPIO_WritePin(motor->sIoDirA.Port, motor->sIoDirA.Pin, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(motor->sIoDirB.Port, motor->sIoDirB.Pin, GPIO_PIN_RESET);
             }
-            // convert voltage to pwm duty cycle
-            dPidOut = 100.0 * (dPidOut / MOTOR_VOLTAGE_MAX);
-            iPwmValue = (uint16_t) fabs(dPidOut * (float) MAX_UINT16 / 100.0);
-            __HAL_TIM_SET_COMPARE(pMotor->hTimer, pMotor->iTimerChannel, iPwmValue);
+            else
+            {
+                HAL_GPIO_WritePin(motor->sIoDirA.Port, motor->sIoDirA.Pin, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(motor->sIoDirB.Port, motor->sIoDirB.Pin, GPIO_PIN_SET);
+            }
         }
-        else
-        {
-            pOps->dTarget = 0.0;
-            pOps->dSpeed = 0.0;
-            __HAL_TIM_SET_COMPARE(pMotor->hTimer, pMotor->iTimerChannel, 0);
-        }
-        // Update variable
-        pMotor->sEncoder.iLastCounter = pMotor->sEncoder.iCounter;
-        pMotor->iLastCalculate = iTimeNow;
+        pwmValue = (uint16_t) fabs(block->MotorOps[i].Voltage * (float) MAX_UINT16 / 100.0);
+        __HAL_TIM_SET_COMPARE(motor->hTimer, motor->iTimerChannel, pwmValue);
     }
 }
 
-void MotorDrv_Stop(MotorDrv_IdTypeDef id)
+void MotorDrv_Stop()
 {
-    MotorDrv_InfoTypeDef *pMotor = &sMotorInfo[id];
-    sMotorOps[id].dTarget = 0;
-    HAL_GPIO_WritePin(pMotor->sIoDirA.Port, pMotor->sIoDirA.Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(pMotor->sIoDirB.Port, pMotor->sIoDirB.Pin, GPIO_PIN_RESET);
-    __HAL_TIM_SET_COMPARE(pMotor->hTimer, pMotor->iTimerChannel, 0);
-}
-
-bool MotorDrv_IsIdle(MotorDrv_IdTypeDef id)
-{
-    return sMotorOps[id].dTarget > 0 ? false : true;
-}
-
-
-void MotorDrv_SetPid(MotorDrv_IdTypeDef id,  float fKp, float fKi, float fKd)
-{
-    MotorDrv_InfoTypeDef *pMotor = &sMotorInfo[id];
-    pMotor->sPid.fKp = fKp;
-    pMotor->sPid.fKi = fKi;
-    pMotor->sPid.fKd = fKd;
+    for(uint8_t i = 0; i < MOTOR_ID_NUM; i++) 
+    {
+        MotorDrv_InfoTypeDef *pMotor = &sMotorInfo[i];
+        motorOps[i].Millimeters = 0;
+        motorOps[i].Speed = 0;
+        HAL_GPIO_WritePin(pMotor->sIoDirA.Port, pMotor->sIoDirA.Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(pMotor->sIoDirB.Port, pMotor->sIoDirB.Pin, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(pMotor->hTimer, pMotor->iTimerChannel, 0);
+    }
 }

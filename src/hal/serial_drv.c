@@ -14,7 +14,6 @@ UART_HandleTypeDef hSerial;
 #define SERIAL_CLK_ENABLE               __HAL_RCC_USART1_CLK_ENABLE
 #define SERIAL_IRQn                     USART1_IRQn
 #define SerialDrv_ISRHandler            USART1_IRQHandler
-#define QUEUE_SIZE                      4
 QueueHandle_t hReceiveQueue;
 SerialDrv_DataTypeDef sBuffer;
 void SerialDrv_ISRHandler()
@@ -49,7 +48,7 @@ void SerialDrv_ISRHandler()
             {
                 sBuffer.data[sBuffer.iLength] = data;
                 sBuffer.iLength++;
-                if (sBuffer.iLength >= SERIAL_RECEIVE_BUFFER)
+                if (sBuffer.iLength >= RECEIVE_CMD_BUFFER_SIZE)
                 {
                     sBuffer.iLength = 0;
                 }
@@ -101,7 +100,7 @@ void SerialDrv_Init()
     {
         Common_Assert(__LINE__, __FILE__);
     }
-    hReceiveQueue = xQueueCreate(QUEUE_SIZE, SERIAL_RECEIVE_BUFFER);
+    hReceiveQueue = xQueueCreate(RECEIVE_CMD_QUEUE_SIZE, RECEIVE_CMD_BUFFER_SIZE);
 }
 
 size_t SerialDrv_Send(char *buffer, uint16_t length, int timeout)
